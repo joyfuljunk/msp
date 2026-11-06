@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi Studio Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Cropper.js for Image Editor -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <style>
+        .editor-content:empty:before {
+            content: attr(data-placeholder);
+            color: #9ca3af;
+            pointer-events: none;
+            display: block;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        .cropper-view-box, .cropper-face { border-radius: 4px; }
+        input[type="range"] { accent-color: #3b82f6; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 h-full flex flex-col font-sans transition-colors duration-200">
+
+    <!-- Top Main Bar -->
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-2.5 flex items-center justify-between shrink-0 z-40">
+        <div class="flex items-center space-x-4">
+            <!-- App Logo & Title -->
+            <button onclick="switchView('library')" class="flex items-center space-x-2.5 text-left group">
+                <div class="w-8 h-8 bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 rounded-xl flex items-center justify-center font-extrabold text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition">
+                    <i class="fa-solid fa-layer-group text-sm"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="font-bold text-base tracking-tight text-slate-900 dark:text-white">Multi Studio</span>
+                        <span class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">PRO</span>
+                    </div>
+                </div>
+            </button>
+
+            <div id="active-file-divider" class="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 hidden"></div>
+
+            <!-- Active File Rename & Extension Bar -->
+            <div id="active-file-bar" class="hidden flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <i id="active-type-icon" class="fa-solid fa-file text-blue-500 text-xs"></i>
+                <input type="text" id="active-file-name" class="bg-transparent font-medium text-xs md:text-sm focus:outline-none w-32 md:w-48 text-slate-900 dark:text-white">
+                <span class="text-slate-400 text-xs font-mono">.</span>
+                <select id="active-file-ext" onchange="changeFileExtension(this.value)" class="bg-transparent font-mono text-xs text-blue-600 dark:text-blue-400 focus:outline-none cursor-pointer">
+                    <option value="txt" class="dark:bg-slate-900 text-slate-800 dark:text-slate-200">txt</option>
+                    <option value="md" class="dark:bg-slate-900 text-slate-800 dark:text-slate-200">md</option>
+                    <option value="html" class="dark:bg-slate-900 text-slate-800 dark:text-slate-200">html</option>
+                    <option value="png" class="dark:bg-slate-900 text-slate-800 dark:text-slate-200">png</option>
+                    <option value="jpg" class="dark:bg-slate-900 text-slate-800 dark:text-slate-200">jpg</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Global Actions -->
+        <div class="flex items-center space-x-2">
+            <!-- Save Button (In Editor View) -->
+            <button id="save-btn" onclick="saveActiveFile()" class="hidden bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>저장</span>
+            </button>
+
+            <!-- Export / Download (In Editor View) -->
+            <button id="export-btn" onclick="downloadActiveFile()" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-download"></i>
+                <span class="hidden sm:inline">다운로드</span>
+            </button>
+
+            <div class="h-4 w-[1px] bg-slate-200 dark:bg-slate-800"></div>
+
+            <!-- View Switchers -->
+            <button onclick="switchView('library')" id="nav-library-btn" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center space-x-1" title="라이브러리">
+                <i class="fa-solid fa-folder-open text-sm"></i>
+                <span class="text-xs font-medium hidden md:inline">라이브러리</span>
+            </button>
+
+            <!-- Theme Toggle -->
+            <button onclick="toggleDarkMode()" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="테마 전환">
+                <i id="theme-icon" class="fa-solid fa-moon text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <div class="flex-1 flex overflow-hidden">
+
+        <!-- VIEW 1: FILE LIBRARY -->
+        <section id="view-library" class="flex-1 flex flex-col p-6 overflow-y-auto max-w-7xl mx-auto w-full">
+            
+            <!-- Library Header / Controls -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">내 라이브러리</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">로컬 공간에 보관된 문서, 사진, HTML 코드를 실시간으로 편집하세요.</p>
+                </div>
+
+                <!-- Action Toolbar -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- New File Dropdown -->
+                    <div class="relative inline-block text-left">
+                        <button onclick="toggleNewMenu()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-medium transition flex items-center space-x-2 shadow-sm">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>새 파일 만들기</span>
+                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                        </button>
+                        <div id="new-menu" class="hidden absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 py-1.5 text-xs">
+                            <button onclick="createNewFile('doc')" class="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-2 text-slate-700 dark:text-slate-200">
+                                <i class="fa-solid fa-file-lines text-blue-500"></i>
+                                <span>새 문서 (.txt / .md)</span>
+                            </button>
+                            <button onclick="createNewFile('html')" class="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-2 text-slate-700 dark:text-slate-200">
+                                <i class="fa-solid fa-code text-indigo-500"></i>
+                                <span>새 HTML 코드 (.html)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Import External File -->
+                    <label class="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 px-3.5 py-2 rounded-lg text-xs font-medium transition flex items-center space-x-2 shadow-sm">
+                        <i class="fa-solid fa-file-import text-slate-400"></i>
+                        <span>외부 파일 불러오기</span>
+                        <input type="file" id="import-input" accept=".txt,.md,.html,.png,.jpg,.jpeg,.webp" class="hidden" onchange="importFile(event)">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Filters & Search -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <!-- Category Tabs -->
+                <div class="flex space-x-1 text-xs font-medium w-full sm:w-auto">
+                    <button onclick="filterCategory('all')" id="filter-all" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-semibold">전체</button>
+                    <button onclick="filterCategory('doc')" id="filter-doc" class="px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">문서</button>
+                    <button onclick="filterCategory('image')" id="filter-image" class="px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">사진</button>
+                    <button onclick="filterCategory('html')" id="filter-html" class="px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">HTML 코드</button>
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="search-input" oninput="renderLibrary()" placeholder="파일 이름 검색..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+
+            <!-- Library Items Grid -->
+            <div id="library-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="library-empty" class="hidden flex-1 flex flex-col items-center justify-center py-16 text-center">
+                <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 text-2xl mb-3">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-400">보관된 파일이 없습니다.</p>
+                <p class="text-xs text-slate-400 mt-1 mb-4">상단의 버튼을 눌러 새 문서를 만들거나 사진을 불러오세요.</p>
+            </div>
+        </section>
+
+        <!-- VIEW 2: DOCUMENT EDITOR -->
+        <section id="view-doc-editor" class="hidden flex-1 flex flex-col overflow-hidden">
+            <!-- Floating Format Toolbar -->
+            <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-2 px-6 flex justify-center sticky top-0 z-20">
+                <div class="flex items-center space-x-1 text-slate-600 dark:text-slate-300 text-sm">
+                    <button onclick="formatDoc('bold')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition" title="굵게"><i class="fa-solid fa-bold"></i></button>
+                    <button onclick="formatDoc('italic')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition" title="기울임"><i class="fa-solid fa-italic"></i></button>
+                    <button onclick="formatDoc('underline')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition" title="밑줄"><i class="fa-solid fa-underline"></i></button>
+                    <button onclick="formatDoc('strikethrough')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition" title="취소선"><i class="fa-solid fa-strikethrough"></i></button>
+                    <div class="w-[1px] h-4 bg-slate-200 dark:bg-slate-800 mx-1"></div>
+                    <button onclick="formatDocBlock('h1')" class="px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-bold text-xs transition">H1</button>
+                    <button onclick="formatDocBlock('h2')" class="px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-bold text-xs transition">H2</button>
+                    <button onclick="formatDocBlock('p')" class="px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-xs transition">P</button>
+                    <div class="w-[1px] h-4 bg-slate-200 dark:bg-slate-800 mx-1"></div>
+                    <button onclick="formatDoc('insertUnorderedList')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"><i class="fa-solid fa-list-ul"></i></button>
+                    <button onclick="formatDoc('insertOrderedList')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition"><i class="fa-solid fa-list-ol"></i></button>
+                </div>
+            </div>
+
+            <main class="flex-1 max-w-3xl w-full mx-auto p-6 md:p-10 overflow-y-auto flex flex-col">
+                <div id="doc-editor" contenteditable="true" data-placeholder="이곳에 내용을 작성하세요..." class="editor-content flex-1 outline-none text-base md:text-lg leading-relaxed space-y-4 text-slate-800 dark:text-slate-100"></div>
+            </main>
+
+            <!-- Doc Footer Stats -->
+            <footer class="border-t border-slate-200 dark:border-slate-800 py-2.5 px-6 text-xs text-slate-400 flex justify-between items-center max-w-3xl w-full mx-auto">
+                <div class="flex space-x-4">
+                    <span id="doc-word-count">단어 0개</span>
+                    <span id="doc-char-count">글자 0자</span>
+                </div>
+                <span id="doc-read-time">읽기 시간: 약 0분</span>
+            </footer>
+        </section>
+
+        <!-- VIEW 3: IMAGE EDITOR -->
+        <section id="view-image-editor" class="hidden flex-1 flex flex-col md:flex-row overflow-hidden">
+            <main class="flex-1 bg-slate-950/80 p-6 flex items-center justify-center relative min-h-[350px] overflow-hidden">
+                <div id="img-container" class="max-w-full max-h-[75vh] flex items-center justify-center">
+                    <img id="img-preview" src="" alt="Editing Preview" class="max-w-full max-h-[75vh] object-contain">
+                </div>
+            </main>
+
+            <aside class="w-full md:w-80 bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 p-5 flex flex-col space-y-5 overflow-y-auto shrink-0">
+                <div class="flex border-b border-slate-200 dark:border-slate-800 pb-2 space-x-4 text-xs font-semibold">
+                    <button onclick="switchImgTab('adjust')" id="img-tab-adjust" class="text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 pb-1">필터 보정</button>
+                    <button onclick="switchImgTab('crop')" id="img-tab-crop" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 pb-1">자르기/회전</button>
+                    <button onclick="switchImgTab('resize')" id="img-tab-resize" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 pb-1">크기 변경</button>
+                </div>
+
+                <!-- Panel Adjust -->
+                <div id="img-panel-adjust" class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>밝기 (Brightness)</span>
+                            <span id="val-brightness">100%</span>
+                        </div>
+                        <input type="range" id="slider-brightness" min="0" max="200" value="100" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>명암비 (Contrast)</span>
+                            <span id="val-contrast">100%</span>
+                        </div>
+                        <input type="range" id="slider-contrast" min="0" max="200" value="100" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>채도 (Saturate)</span>
+                            <span id="val-saturate">100%</span>
+                        </div>
+                        <input type="range" id="slider-saturate" min="0" max="200" value="100" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>흐림 (Blur)</span>
+                            <span id="val-blur">0px</span>
+                        </div>
+                        <input type="range" id="slider-blur" min="0" max="10" value="0" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <button onclick="resetImgFilters()" class="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-medium text-slate-600 dark:text-slate-300 rounded-lg transition">필터 초기화</button>
+                </div>
+
+                <!-- Panel Crop -->
+                <div id="img-panel-crop" class="space-y-4 hidden">
+                    <label class="block text-xs font-medium text-slate-400">자르기 비율</label>
+                    <div class="grid grid-cols-3 gap-1.5 text-xs">
+                        <button onclick="setCropRatio(NaN)" class="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700">자유</button>
+                        <button onclick="setCropRatio(1)" class="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700">1:1</button>
+                        <button onclick="setCropRatio(4/3)" class="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700">4:3</button>
+                        <button onclick="setCropRatio(16/9)" class="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700">16:9</button>
+                        <button onclick="setCropRatio(3/4)" class="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded border border-slate-200 dark:border-slate-700">3:4</button>
+                    </div>
+
+                    <label class="block text-xs font-medium text-slate-400 pt-2">회전 및 반전</label>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button onclick="rotateImg(-90)" class="py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center space-x-1"><i class="fa-solid fa-rotate-left"></i><span>-90°</span></button>
+                        <button onclick="rotateImg(90)" class="py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center space-x-1"><i class="fa-solid fa-rotate-right"></i><span>+90°</span></button>
+                        <button onclick="flipImg('h')" class="py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center space-x-1"><i class="fa-solid fa-arrows-left-right"></i><span>좌우 반전</span></button>
+                        <button onclick="flipImg('v')" class="py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center space-x-1"><i class="fa-solid fa-arrows-up-down"></i><span>상하 반전</span></button>
+                    </div>
+                </div>
+
+                <!-- Panel Resize -->
+                <div id="img-panel-resize" class="space-y-4 hidden">
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                            <label class="block text-slate-400 mb-1">가로 너비 (px)</label>
+                            <input type="number" id="img-width" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">세로 높이 (px)</label>
+                            <input type="number" id="img-height" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs text-slate-400">
+                        <input type="checkbox" id="img-ratio-lock" checked class="rounded border-slate-700 text-blue-600 focus:ring-0">
+                        <label for="img-ratio-lock">비율 유지하기</label>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <!-- VIEW 4: HTML & CODE PREVIEW EDITOR -->
+        <section id="view-html-editor" class="hidden flex-1 flex flex-col md:flex-row overflow-hidden">
+            <!-- Code Editor Pane -->
+            <div class="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
+                <div class="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 text-xs font-mono font-medium text-slate-500 flex justify-between items-center">
+                    <span><i class="fa-solid fa-code text-indigo-500 mr-1.5"></i>HTML / CSS / JS 코드 입력</span>
+                    <span class="text-[10px] bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">실시간 연동</span>
+                </div>
+                <textarea id="html-code-input" spellcheck="false" class="flex-1 p-4 bg-slate-900 text-slate-100 font-mono text-sm leading-relaxed outline-none resize-none" placeholder="<html><body><h1>Hello World</h1></body></html>"></textarea>
+            </div>
+
+            <!-- Live Preview Pane -->
+            <div class="w-full md:w-1/2 flex flex-col bg-white">
+                <div class="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 text-xs font-mono font-medium text-slate-500 flex justify-between items-center">
+                    <span><i class="fa-solid fa-eye text-emerald-500 mr-1.5"></i>실시간 라이브 미리보기</span>
+                    <button onclick="refreshHtmlPreview()" class="hover:text-slate-800 dark:hover:text-slate-200"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+                <iframe id="html-preview-frame" class="flex-1 w-full h-full border-none bg-white"></iframe>
+            </div>
+        </section>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // Data Structures & Storage
+        let files = [];
+        let activeFileId = null;
+        let activeCategory = 'all';
+        let cropper = null;
+        let origImgWidth = 0;
+        let origImgHeight = 0;
+        let flipH = 1;
+        let flipV = 1;
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFilesFromStorage();
+            renderLibrary();
+
+            // Setup Theme Preference
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').className = 'fa-solid fa-sun text-sm';
+            }
+
+            // Text Stats Auto-calculator
+            document.getElementById('doc-editor').addEventListener('input', updateDocStats);
+
+            // HTML Live Preview Auto-updater
+            document.getElementById('html-code-input').addEventListener('input', () => {
+                debouncedUpdateHtmlPreview();
+            });
+
+            // Image Resize Ratio Lock
+            document.getElementById('img-width').addEventListener('input', (e) => {
+                if (document.getElementById('img-ratio-lock').checked && origImgWidth > 0) {
+                    const ratio = origImgHeight / origImgWidth;
+                    document.getElementById('img-height').value = Math.round(e.target.value * ratio);
+                }
+            });
+
+            // Active Title Auto-sync
+            document.getElementById('active-file-name').addEventListener('input', (e) => {
+                if (!activeFileId) return;
+                const file = files.find(f => f.id === activeFileId);
+                if (file) {
+                    file.name = e.target.value || '제목 없음';
+                    saveFilesToStorage();
+                }
+            });
+        });
+
+        // Load & Save Storage (localStorage)
+        function loadFilesFromStorage() {
+            const stored = localStorage.getItem('multi_studio_files');
+            if (stored) {
+                try { files = JSON.parse(stored); } catch (e) { files = []; }
+            }
+            if (!files || files.length === 0) {
+                // Seed Demo Files if Empty
+                files = [
+                    {
+                        id: 'demo_doc_1',
+                        name: 'Multi Studio Pro 사용 설명서',
+                        ext: 'md',
+                        type: 'doc',
+                        content: '<h2>Multi Studio Pro에 오신 것을 환영합니다!</h2><p>이 웹 앱은 문서, 이미지, HTML 코드를 로컬 환경에서 자유롭게 편집하고 관리하는 <b>올인원 스마트 워크스페이스</b>입니다.</p><ul><li><b>문서 편집:</b> .txt 및 .md 파일 실시간 작성</li><li><b>사진 스마트 편집:</b> 크기 조절, 자르기, 회전, 밝기/선명도 필터 보정</li><li><b>HTML 라이브 프리뷰:</b> 코드를 수정하면 우측에 실시간 결과 출력</li><li><b>확장자 변경:</b> 상단바에서 파일 이름 및 확장자 동각 변경 지원</li></ul>',
+                        updatedAt: Date.now()
+                    },
+                    {
+                        id: 'demo_html_1',
+                        name: 'index',
+                        ext: 'html',
+                        type: 'html',
+                        content: '<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f9ff; }\n    .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }\n    h1 { color: #0284c7; margin-bottom: 0.5rem; }\n  </style>\n</head>\n<body>\n  <div class="card">\n    <h1>Hello Multi Studio!</h1>\n    <p>HTML 코드를 수정하면 우측 창에 바로 나타납니다.</p>\n  </div>\n</body>\n</html>',
+                        updatedAt: Date.now()
+                    }
+                ];
+                saveFilesToStorage();
+            }
+        }
+
+        function saveFilesToStorage() {
+            localStorage.setItem('multi_studio_files', JSON.stringify(files));
+        }
+
+        // View Router
+        function switchView(viewName) {
+            ['library', 'doc-editor', 'image-editor', 'html-editor'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+            });
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+
+            const activeBar = document.getElementById('active-file-bar');
+            const saveBtn = document.getElementById('save-btn');
+            const exportBtn = document.getElementById('export-btn');
+            const divider = document.getElementById('active-file-divider');
+
+            if (viewName === 'library') {
+                activeBar.classList.add('hidden');
+                saveBtn.classList.add('hidden');
+                exportBtn.classList.add('hidden');
+                divider.classList.add('hidden');
+                renderLibrary();
+            } else {
+                activeBar.classList.remove('hidden');
+                saveBtn.classList.remove('hidden');
+                exportBtn.classList.remove('hidden');
+                divider.classList.remove('hidden');
+            }
+        }
+
+        // Render Library Items
+        function renderLibrary() {
+            const grid = document.getElementById('library-grid');
+            const empty = document.getElementById('library-empty');
+            const search = document.getElementById('search-input').value.toLowerCase();
+
+            grid.innerHTML = '';
+            
+            let filtered = files.filter(f => {
+                const matchCategory = activeCategory === 'all' || f.type === activeCategory;
+                const matchSearch = f.name.toLowerCase().includes(search) || f.ext.toLowerCase().includes(search);
+                return matchCategory && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            filtered.forEach(file => {
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 rounded-xl p-4 flex flex-col justify-between transition group shadow-sm hover:shadow-md cursor-pointer";
+                
+                let iconClass = "fa-file-lines text-blue-500";
+                if (file.type === 'image') iconClass = "fa-image text-emerald-500";
+                if (file.type === 'html') iconClass = "fa-code text-indigo-500";
+
+                const dateStr = new Date(file.updatedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                card.innerHTML = `
+                    <div onclick="openFile('${file.id}')">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-base">
+                                <i class="fa-solid ${iconClass}"></i>
+                            </div>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold uppercase">${file.ext}</span>
+                        </div>
+                        <h3 class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mb-1">${escapeHtml(file.name)}</h3>
+                        <p class="text-[11px] text-slate-400">${dateStr}</p>
+                    </div>
+                    <div class="flex items-center justify-end space-x-2 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80">
+                        <button onclick="event.stopPropagation(); duplicateFile('${file.id}')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 text-xs" title="복사본 만들기"><i class="fa-solid fa-copy"></i></button>
+                        <button onclick="event.stopPropagation(); deleteFile('${file.id}')" class="text-slate-400 hover:text-rose-500 p-1 text-xs" title="삭제"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Create New File
+        function createNewFile(type) {
+            toggleNewMenu(false);
+            const id = 'file_' + Date.now();
+            let newFile = {
+                id,
+                name: '새 문서',
+                ext: type === 'html' ? 'html' : 'txt',
+                type: type,
+                content: type === 'html' ? '<h1>Hello World</h1>' : '',
+                updatedAt: Date.now()
+            };
+            files.unshift(newFile);
+            saveFilesToStorage();
+            openFile(id);
+        }
+
+        function toggleNewMenu(forceState) {
+            const menu = document.getElementById('new-menu');
+            if (forceState !== undefined) {
+                if (forceState) menu.classList.remove('hidden');
+                else menu.classList.add('hidden');
+            } else {
+                menu.classList.toggle('hidden');
+            }
+        }
+
+        // Open File in Appropriate Editor
+        function openFile(id) {
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+
+            activeFileId = id;
+            document.getElementById('active-file-name').value = file.name;
+            document.getElementById('active-file-ext').value = file.ext;
+
+            const typeIcon = document.getElementById('active-type-icon');
+            if (file.type === 'doc') typeIcon.className = "fa-solid fa-file-lines text-blue-500 text-xs";
+            if (file.type === 'image') typeIcon.className = "fa-solid fa-image text-emerald-500 text-xs";
+            if (file.type === 'html') typeIcon.className = "fa-solid fa-code text-indigo-500 text-xs";
+
+            if (file.type === 'doc') {
+                document.getElementById('doc-editor').innerHTML = file.content || '';
+                updateDocStats();
+                switchView('doc-editor');
+            } else if (file.type === 'image') {
+                const imgPreview = document.getElementById('img-preview');
+                imgPreview.src = file.content;
+                switchView('image-editor');
+
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    origImgWidth = tempImg.width;
+                    origImgHeight = tempImg.height;
+                    document.getElementById('img-width').value = origImgWidth;
+                    document.getElementById('img-height').value = origImgHeight;
+                    initCropper();
+                };
+                tempImg.src = file.content;
+            } else if (file.type === 'html') {
+                document.getElementById('html-code-input').value = file.content || '';
+                switchView('html-editor');
+                refreshHtmlPreview();
+            }
+        }
+
+        // Extension Change Handler (Direct format conversion logic)
+        function changeFileExtension(newExt) {
+            if (!activeFileId) return;
+            const file = files.find(f => f.id === activeFileId);
+            if (!file) return;
+
+            file.ext = newExt;
+            
+            // Re-categorize Engine
+            if (['png', 'jpg', 'jpeg', 'webp'].includes(newExt)) {
+                file.type = 'image';
+            } else if (newExt === 'html') {
+                file.type = 'html';
+            } else {
+                file.type = 'doc';
+            }
+
+            saveFilesToStorage();
+            openFile(file.id);
+        }
+
+        // Save Active File
+        function saveActiveFile() {
+            if (!activeFileId) return;
+            const file = files.find(f => f.id === activeFileId);
+            if (!file) return;
+
+            file.name = document.getElementById('active-file-name').value || '제목 없음';
+            file.ext = document.getElementById('active-file-ext').value;
+            file.updatedAt = Date.now();
+
+            if (file.type === 'doc') {
+                file.content = document.getElementById('doc-editor').innerHTML;
+            } else if (file.type === 'html') {
+                file.content = document.getElementById('html-code-input').value;
+            } else if (file.type === 'image' && cropper) {
+                // Export Canvas with Filters
+                const widthInput = parseInt(document.getElementById('img-width').value) || undefined;
+                const heightInput = parseInt(document.getElementById('img-height').value) || undefined;
+
+                const croppedCanvas = cropper.getCroppedCanvas({
+                    width: widthInput,
+                    height: heightInput,
+                    imageSmoothingEnabled: true,
+                    imageSmoothingQuality: 'high',
+                });
+
+                const finalCanvas = document.createElement('canvas');
+                finalCanvas.width = croppedCanvas.width;
+                finalCanvas.height = croppedCanvas.height;
+                const ctx = finalCanvas.getContext('2d');
+
+                const b = document.getElementById('slider-brightness').value;
+                const c = document.getElementById('slider-contrast').value;
+                const s = document.getElementById('slider-saturate').value;
+                const blur = document.getElementById('slider-blur').value;
+                ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%) blur(${blur}px)`;
+
+                ctx.drawImage(croppedCanvas, 0, 0);
+                file.content = finalCanvas.toDataURL(`image/${file.ext === 'jpg' ? 'jpeg' : 'png'}`);
+            }
+
+            saveFilesToStorage();
+            alert('저장되었습니다!');
+        }
+
+        // Download Active File
+        function downloadActiveFile() {
+            if (!activeFileId) return;
+            saveActiveFile();
+            const file = files.find(f => f.id === activeFileId);
+            if (!file) return;
+
+            const a = document.createElement('a');
+            a.download = `${file.name}.${file.ext}`;
+
+            if (file.type === 'image') {
+                a.href = file.content;
+            } else {
+                const textContent = file.type === 'doc' ? document.getElementById('doc-editor').innerText : file.content;
+                const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+                a.href = URL.createObjectURL(blob);
+            }
+            a.click();
+        }
+
+        // Import File
+        function importFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            const ext = file.name.split('.').pop().toLowerCase();
+            const fileName = file.name.replace(/\.[^/.]+$/, "");
+
+            let type = 'doc';
+            if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) type = 'image';
+            if (ext === 'html') type = 'html';
+
+            if (type === 'image') {
+                reader.readAsDataURL(file);
+            } else {
+                reader.readAsText(file);
+            }
+
+            reader.onload = (evt) => {
+                const newId = 'file_' + Date.now();
+                files.unshift({
+                    id: newId,
+                    name: fileName,
+                    ext: ext,
+                    type: type,
+                    content: evt.target.result,
+                    updatedAt: Date.now()
+                });
+                saveFilesToStorage();
+                renderLibrary();
+                openFile(newId);
+            };
+        }
+
+        // Delete & Duplicate
+        function deleteFile(id) {
+            if (confirm('파일을 삭제하시겠습니까?')) {
+                files = files.filter(f => f.id !== id);
+                saveFilesToStorage();
+                renderLibrary();
+            }
+        }
+
+        function duplicateFile(id) {
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+            const newFile = JSON.parse(JSON.stringify(file));
+            newFile.id = 'file_' + Date.now();
+            newFile.name = `${file.name} (복사본)`;
+            newFile.updatedAt = Date.now();
+            files.unshift(newFile);
+            saveFilesToStorage();
+            renderLibrary();
+        }
+
+        // Category Filter
+        function filterCategory(cat) {
+            activeCategory = cat;
+            ['all', 'doc', 'image', 'html'].forEach(c => {
+                const btn = document.getElementById(`filter-${c}`);
+                if (c === cat) {
+                    btn.className = "px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-semibold";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition";
+                }
+            });
+            renderLibrary();
+        }
+
+        // Document Formatting Helpers
+        function formatDoc(cmd, val = null) {
+            document.execCommand(cmd, false, val);
+            document.getElementById('doc-editor').focus();
+        }
+
+        function formatDocBlock(tag) {
+            document.execCommand('formatBlock', false, `<${tag}>`);
+            document.getElementById('doc-editor').focus();
+        }
+
+        function updateDocStats() {
+            const editor = document.getElementById('doc-editor');
+            const text = editor.innerText || '';
+            const chars = text.length;
+            const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+            const minutes = Math.ceil(words / 200);
+
+            document.getElementById('doc-word-count').textContent = `단어 ${words}개`;
+            document.getElementById('doc-char-count').textContent = `글자 ${chars}자`;
+            document.getElementById('doc-read-time').textContent = `읽기 시간: 약 ${minutes}분`;
+        }
+
+        // Image Cropper Logic
+        function initCropper() {
+            const img = document.getElementById('img-preview');
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(img, {
+                viewMode: 1,
+                autoCropArea: 1,
+                responsive: true,
+                background: false,
+            });
+        }
+
+        function switchImgTab(tab) {
+            ['adjust', 'crop', 'resize'].forEach(t => {
+                document.getElementById(`img-panel-${t}`).classList.add('hidden');
+                document.getElementById(`img-tab-${t}`).className = 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 pb-1';
+            });
+            document.getElementById(`img-panel-${tab}`).classList.remove('hidden');
+            document.getElementById(`img-tab-${tab}`).className = 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 pb-1';
+        }
+
+        // Image Sliders
+        const imgFilters = ['brightness', 'contrast', 'saturate', 'blur'];
+        imgFilters.forEach(f => {
+            document.getElementById(`slider-${f}`).addEventListener('input', (e) => {
+                const unit = f === 'blur' ? 'px' : '%';
+                document.getElementById(`val-${f}`).textContent = e.target.value + unit;
+                applyImgFilters();
+            });
+        });
+
+        function applyImgFilters() {
+            const b = document.getElementById('slider-brightness').value;
+            const c = document.getElementById('slider-contrast').value;
+            const s = document.getElementById('slider-saturate').value;
+            const blur = document.getElementById('slider-blur').value;
+
+            const filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%) blur(${blur}px)`;
+            const cropperImg = document.querySelector('.cropper-container img');
+            if (cropperImg) cropperImg.style.filter = filterStr;
+        }
+
+        function resetImgFilters() {
+            document.getElementById('slider-brightness').value = 100;
+            document.getElementById('slider-contrast').value = 100;
+            document.getElementById('slider-saturate').value = 100;
+            document.getElementById('slider-blur').value = 0;
+            imgFilters.forEach(f => {
+                document.getElementById(`val-${f}`).textContent = (f === 'blur' ? '0px' : '100%');
+            });
+            applyImgFilters();
+        }
+
+        function setCropRatio(r) { if (cropper) cropper.setAspectRatio(r); }
+        function rotateImg(deg) { if (cropper) cropper.rotate(deg); }
+        function flipImg(dir) {
+            if (!cropper) return;
+            if (dir === 'h') { flipH = -flipH; cropper.scaleX(flipH); }
+            else { flipV = -flipV; cropper.scaleY(flipV); }
+        }
+
+        // HTML Preview Renderer
+        let debounceTimer;
+        function debouncedUpdateHtmlPreview() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(refreshHtmlPreview, 300);
+        }
+
+        function refreshHtmlPreview() {
+            const code = document.getElementById('html-code-input').value;
+            const frame = document.getElementById('html-preview-frame');
+            const doc = frame.contentDocument || frame.contentWindow.document;
+            doc.open();
+            doc.write(code);
+            doc.close();
+        }
+
+        // Theme Toggle
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('theme-icon');
+            icon.className = isDark ? 'fa-solid fa-sun text-sm' : 'fa-solid fa-moon text-sm';
+        }
+
+        // Helper Utility
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
